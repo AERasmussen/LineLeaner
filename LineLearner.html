@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Line Learner by AER</title>
+  <style>
+    body {
+      font-family: Arial;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      text-align: center;
+    }
+    #questionArea, #answerArea {
+      margin-top: 20px;
+      font-size: 1.5em;
+      line-height: 1.5;
+      min-height: 80px;
+    }
+    .highlight {
+      background-color: yellow;
+    }
+    textarea, select, button {
+      margin-top: 10px;
+      padding: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 1em;
+    }
+    #controls {
+      margin-top: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Line Learner by AER</h2>
+
+  <div>
+    <button onclick="loadSecondDegree()">Fellow Craft</button>
+    <button onclick="loadThirdDegree()">Master Mason</button>
+  </div>
+
+  <textarea id="scriptInput" placeholder="Paste your script here..."></textarea>
+  <label for="learnerSelect">Who is learning?</label>
+  <select id="learnerSelect">
+    <option value="Candidate">Candidate</option>
+    <option value="Worshipful Master">Worshipful Master</option>
+  </select>
+  <button onclick="loadScript()">Load Script</button>
+
+  <div id="questionArea"></div>
+  <div id="answerArea"></div>
+
+  <div id="controls" class="hidden">
+    <button onclick="prevPair()">Previous</button>
+    <button onclick="showAnswer()">Show Answer</button>
+    <button onclick="speakQuestion()">Speak Question</button>
+    <button onclick="nextPair()">Next</button>
+  </div>
+
+  <script>
+    let pairs = [];
+    let currentPair = 0;
+    let learner = '';
+    let answerShown = false;
+
+    function parseScript(rawScript) {
+      const lines = rawScript.split('\n').filter(line => line.includes(':')).map(line => {
+        const [speaker, ...rest] = line.split(':');
+        return { speaker: speaker.trim(), text: rest.join(':').trim() };
+      });
+      const result = [];
+      for (let i = 0; i < lines.length - 1; i++) {
+        if (lines[i].speaker !== learner && lines[i + 1].speaker === learner) {
+          result.push({ question: lines[i], answer: lines[i + 1] });
+          i++; // skip the answer
+        }
+      }
+      return result;
+    }
+
+    function loadScript() {
+      const rawScript = document.getElementById("scriptInput").value;
+      learner = document.getElementById("learnerSelect").value;
+      pairs = parseScript(rawScript);
+      currentPair = 0;
+      document.getElementById("controls").classList.remove("hidden");
+      showPair();
+    }
+
+    function showPair() {
+      const questionArea = document.getElementById("questionArea");
+      const answerArea = document.getElementById("answerArea");
+      const pair = pairs[currentPair];
+      answerShown = false;
+
+      if (!pair) {
+        questionArea.innerText = "End of script.";
+        answerArea.innerText = "";
+        return;
+      }
+
+      speakLineWithHighlight(pair.question.text, questionArea);
+      answerArea.innerText = "(Your Answer)\n[Click 'Show Answer' to reveal]";
+    }
+
+    function showAnswer() {
+      const answerArea = document.getElementById("answerArea");
+      const pair = pairs[currentPair];
+      if (pair && !answerShown) {
+        answerArea.innerText = `(Your Answer)\n${pair.answer.text}`;
+        answerShown = true;
+      }
+    }
+
+    function nextPair() {
+      if (currentPair < pairs.length - 1) {
+        currentPair++;
+        showPair();
+      }
+    }
+
+    function prevPair() {
+      if (currentPair > 0) {
+        currentPair--;
+        showPair();
+      }
+    }
+
+    function speakQuestion() {
+      const questionArea = document.getElementById("questionArea");
+      const pair = pairs[currentPair];
+      if (pair) speakLineWithHighlight(pair.question.text, questionArea);
+    }
+
+    function speakLineWithHighlight(text, element) {
+      if (!window.speechSynthesis) {
+        element.innerText = text;
+        return;
+      }
+
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const words = text.split(' ');
+      let spokenIndex = 0;
+
+      utterance.onboundary = function(event) {
+        if (event.name === 'word' && event.charIndex !== undefined) {
+          spokenIndex = words.findIndex((_, i) => {
+            return event.charIndex <= words.slice(0, i + 1).join(' ').length;
+          });
+          element.innerHTML = words.map((word, i) => {
+            return `<span class="${i === spokenIndex ? 'highlight' : ''}">${word}</span>`;
+          }).join(' ');
+        }
+      };
+
+      utterance.onerror = function () {
+        element.innerText = text;
+      };
+
+      speechSynthesis.speak(utterance);
+    }
+
+    function loadSecondDegree() {
+      const script = `Worshipful Master: Where were you first prepared to be made a Mason?
+Candidate: In my heart.
+
+Worshipful Master: Where next?
+Candidate: In a convenient room adjoining the Lodge.
+
+Worshipful Master: Describe the mode of your preparation?
+Candidate: I was divested of metal and hoodwinked. My right arm, left breast and knee were made bare. My right heel was slipshod and a cable-tow placed about my neck.
+
+Worshipful Master: Where were you made a Mason?
+Candidate: In the body of a Lodge, just, perfect and regular.
+
+Worshipful Master: And when?
+Candidate: When the Sun was at its meridian.
+
+Worshipful Master: In this country Freemasons’ Lodges are usually held in the evening; how do you account for that which at the first view appears a paradox?
+Candidate: The earth, constantly revolving on its axis in its orbit round the Sun and Freemasonry being universally spread over its surface, it necessarily follows that the Sun must always be at its meridian with respect to Freemasonry.
+
+Worshipful Master: What is Freemasonry?
+Candidate: A peculiar system of morality, veiled in allegory and illustrated by symbols.
+
+Worshipful Master: Name the grand principles on which the Order is founded?
+Candidate: Brotherly love, relief and truth.
+
+Worshipful Master: Who are fit and proper persons to be made Masons?
+Candidate: Just, upright and free men, of mature age, sound judgement and strict morals.
+
+Worshipful Master: How do you know yourself to be a Mason?
+Candidate: By the regularity of my initiation, repeated trials and approbations, and a willingness at all times to undergo an examination when properly called on.
+
+Worshipful Master: How do you demonstrate the proof of your being a Mason to others?
+Candidate: By signs, tokens and the perfect points of my entrance.`;
+      document.getElementById("scriptInput").value = script;
+    }
+
+    function loadThirdDegree() {
+      const script = `Worshipful Master: How were you prepared to be passed to the Second Degree?
+Candidate: In a manner somewhat similar to the former, save that in this Degree, I was not hoodwinked, my left arm, breast, and right knee were made bare and my left heel was slipshod.
+
+Worshipful Master: On what were you admitted?
+Candidate: The square.
+
+Worshipful Master: What is a square?
+Candidate: An angle of 90 degrees or the fourth part of a circle.
+
+Worshipful Master: What are the peculiar objects of research in this Degree?
+Candidate: The hidden mysteries of Nature and Science.
+
+Worshipful Master: As it is the hope of reward that sweetens labour, where did our ancient Brethren go to receive their wages?
+Candidate: Into the middle chamber of King Solomon’s Temple.
+
+Worshipful Master: How did they receive them?
+Candidate: Without scruple or diffidence.
+
+Worshipful Master: Why in this peculiar manner?
+Candidate: Without scruple, well knowing they were justly entitled to them, and without diffidence, from the great reliance they placed on the integrity of their employers in those days.
+
+Worshipful Master: What were the names of the two great Pillars which were placed at the porchway or entrance of King Solomon’s Temple?
+Candidate: That on the left was called Boaz, and that on the right Jachin.
+
+Worshipful Master: What are their separate and conjoint significations?
+Candidate: The former denotes in strength, the latter, to establish; and when conjoined, stability, for God said, ‘In strength I will establish this Mine house to stand firm for ever.’`;
+      document.getElementById("scriptInput").value = script;
+    }
+  </script>
+
+</body>
+</html>
